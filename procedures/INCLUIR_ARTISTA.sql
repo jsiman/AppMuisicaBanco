@@ -1,0 +1,48 @@
+CREATE DEFINER=`dba`@`%` PROCEDURE `INCLUIR_ARTISTA`(OUT P_ID_ARTISTA    INT,
+													 IN  P_ART_NOME      VARCHAR(255),
+													 IN  P_ART_LINK_FOTO VARCHAR(500),
+													 IN  P_COMMIT        CHAR(1),
+													 OUT P_OK 	         CHAR(1),
+													 OUT P_RETORNO       VARCHAR(2000))
+INCLUIR_ARTISTA:BEGIN
+
+DECLARE V_ID_ARTISTA INT;
+ 
+CALL VALIDA_CAMPO_OBRIGATORIO(P_ART_NOME, 'ARTISTA', 'ART_NOME', P_OK, P_RETORNO);
+
+	 IF P_OK = 'N' THEN
+		LEAVE INCLUIR_ARTISTA;
+     END IF;
+     
+    SELECT A.ID_ARTISTA
+	 INTO V_ID_ARTISTA FROM ARTISTA A
+	 WHERE UPPER(TRIM(A.ART_NOME)) = UPPER(TRIM(P_ART_NOME));
+        
+  IF V_ID_ARTISTA IS NOT NULL THEN
+  
+    CALL MSG_ERRO('ARTISTA_EXISTE', P_ART_NOME, NULL, NULL, NULL, NULL, P_OK, P_RETORNO);
+         -- O artista :param1 já existe.
+         
+         LEAVE INCLUIR_ARTISTA;
+         
+  END IF;
+  
+-- incluir artista
+INSERT INTO ARTISTA(ART_NOME, ART_LINK_FOTO)
+  VALUES(P_ART_NOME, P_ART_LINK_FOTO);
+
+CALL MSG_SUCESSO('INCLUIR_ARTISTA', P_ART_NOME, NULL,NULL,NULL,NULL, P_OK, P_RETORNO); 
+				  -- O artista :param1 foi cadastrado com sucesso.
+
+      IF P_OK = 'N' THEN
+         LEAVE INCLUIR_ARTISTA;
+      END IF;
+
+IF IFNULL(P_COMMIT,'N') = 'S'THEN
+ COMMIT;
+END IF;
+
+-- retorna o id do artista cadastrado
+SET P_ID_ARTISTA := LAST_INSERT_ID();
+
+END

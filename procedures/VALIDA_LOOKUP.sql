@@ -1,0 +1,40 @@
+CREATE DEFINER=`dba`@`%` PROCEDURE `VALIDA_LOOKUP`(IN  P_ID	     INT,
+							                       IN  P_TABELA  VARCHAR(30),
+							                       IN  P_CAMPO   VARCHAR(30),
+                                                   OUT P_OK	     CHAR(1),
+                                                   OUT P_RETORNO VARCHAR(2000))
+VALIDA_LOOKUP:BEGIN
+
+  IF P_ID IS NULL THEN
+    CALL MSG_ERRO('ERRO_CAMPO_OBRIGATORIO', P_CAMPO, NULL, NULL, NULL, NULL, P_OK, P_RETORNO);
+    LEAVE VALIDA_LOOKUP;
+  END IF;
+
+  SET @V_QUERY = CONCAT('SELECT COUNT(*) INTO  @V_COUNT  
+							     FROM ',  P_TABELA, '
+								 WHERE ', P_CAMPO , ' = ', P_ID);
+  PREPARE STMT FROM @V_QUERY;
+    
+  EXECUTE STMT;
+  
+  DEALLOCATE PREPARE STMT;
+  
+   IF @V_COUNT = 0 THEN
+         -- PEGA O NOME DESCRITIVO DA TABELA 
+      SELECT IFNULL(TA.TAB_DESCRICAO, P_TABELA)
+        INTO P_TABELA
+        FROM TABELA TA, TABELA_CAMPO A
+       WHERE TA.ID_TABELA = A.ID_TABELA
+         AND TA.TAB_NOME = P_TABELA
+         AND A.TAC_NOME = P_CAMPO;
+         
+    CALL MSG_ERRO('ERRO_VALIDA_LOOKUP', P_TABELA, P_ID, NULL, NULL, NULL, P_OK, P_RETORNO);
+   
+   ELSE
+   
+    CALL MSG_SUCESSO('SUCESSO_VALIDA_LOOKUP', P_TABELA, P_ID, NULL, NULL, NULL, P_OK, P_RETORNO);
+   
+   END IF;   
+
+   
+END

@@ -1,0 +1,81 @@
+CREATE DEFINER=`dba`@`%` PROCEDURE `INCLUIR_MUSICA`(IN  P_ID_ARTISTA     INT,
+												    OUT P_ID_MUSICA      INT,
+													IN  P_MUS_NOME       VARCHAR(255),
+                                                    IN  P_MUS_LETRA	     TEXT,
+                                                    IN  P_MUS_LINK_LETRA VARCHAR(500),
+													IN  P_COMMIT         CHAR(1),
+													OUT P_OK 	         CHAR(1),
+													OUT P_RETORNO        VARCHAR(2000))
+INCLUIR_MUSICA:BEGIN
+
+DECLARE V_TEXTO	   VARCHAR(2000);
+DECLARE V_ART_NOME VARCHAR(255);
+
+CALL VALIDA_CAMPO_OBRIGATORIO(P_MUS_NOME, 'MUSICA', 'MUS_NOME', P_OK, P_RETORNO);
+
+     IF P_OK = 'N' THEN
+        LEAVE INCLUIR_MUSICA;
+     END IF;
+
+CALL VALIDA_CAMPO_OBRIGATORIO(P_MUS_LETRA, 'MUSICA', 'MUS_LETRA', P_OK, P_RETORNO);
+
+     IF P_OK = 'N' THEN
+        LEAVE INCLUIR_MUSICA;
+     END IF;
+
+CALL VALIDA_LOOKUP(P_ID_ARTISTA, 'ARTISTA', 'ID_ARTISTA', P_OK, P_RETORNO);
+
+     IF P_OK = 'N' THEN
+        LEAVE INCLUIR_MUSICA;
+     END IF;
+
+ -- PEGA O NOME DO ARTISTA
+ SELECT A.ART_NOME
+		INTO V_ART_NOME
+   FROM ARTISTA A
+   WHERE A.ID_ARTISTA = P_ID_ARTISTA;
+   
+-- VALIDA SE ARTISTA JÁ POSSUI A MESMA MUSÍCA
+   SELECT COUNT(1)
+	    INTO @V_COUNT
+     FROM MUSICA M, ARTISTA A
+	WHERE M.ID_ARTISTA = A.ID_ARTISTA
+	  AND UPPER(TRIM(M.MUS_NOME)) = UPPER(TRIM(P_MUS_NOME))
+	  AND A.ID_ARTISTA = P_ID_ARTISTA;
+
+ IF @V_COUNT >0 THEN
+   CALL MSG_ERRO('MUSICA_ARTISTA_EXISTE', V_ART_NOME, P_MUS_NOME, NULL, NULL, NULL, P_OK, P_RETORNO);
+           -- O artista :param1 já possui a música :param2.
+      
+       LEAVE INCLUIR_MUSICA;
+       
+ END IF;
+  
+   -- INCLUIR MÚSICA
+   INSERT INTO MUSICA 
+			 (ID_ARTISTA, 
+			  MUS_NOME, 
+              MUS_LETRA, 
+              MUS_LINK_LETRA)
+	  VALUES (P_ID_ARTISTA, 
+              P_MUS_NOME, 
+              P_MUS_LETRA, 
+              P_MUS_LINK_LETRA);
+
+CALL MSG_SUCESSO('INCLUIR_MUSICA', P_MUS_NOME, V_ART_NOME,NULL,NULL,NULL, P_OK, P_RETORNO); 
+						     -- A música :param1 foi incluída para o artista :param2 com sucesso.
+                
+     IF P_OK = 'N' THEN
+        LEAVE INCLUIR_MUSICA;
+     END IF;
+     
+     
+IF IFNULL(P_COMMIT, 'N') = 'S'THEN
+ COMMIT;
+END IF;
+
+-- RETORNA ID DA MÚSICA INCLUÍDA
+SET P_ID_MUSICA := LAST_INSERT_ID();
+
+
+END
